@@ -343,8 +343,7 @@ def generate_pdf_bytes(
     else:
     story.append(Paragraph(
         "2. 季付方案屬優惠性質之預付服務費，一經支付後即不予退還。即使甲方於合約期間內提前終止或未使用完畢服務內容，亦同；惟因乙方重大違約致服務無法履行者，不在此限。",
-        styles['number_item']
-    ))
+        styles['number_item']))
 
 
     # 第十一條：通知方式
