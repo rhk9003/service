@@ -4,16 +4,15 @@ import io
 from docx import Document
 from docx.shared import Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import qn  # 用來設定中文字型的重要元件
+from docx.oxml.ns import qn
 
 # =========================================================
 # 0) 基礎設定
 # =========================================================
-PROVIDER_NAME = "高如慧"  # 乙方（服務執行者）
+PROVIDER_NAME = "高如慧"
 BANK_NAME = "中國信託商業銀行"
 BANK_CODE = "822"
 ACCOUNT_NUMBER = "783540208870"
-
 PHASE2_TUTORIAL_URL = "https://youtu.be/caoZAO8tyNs"
 
 # =========================================================
@@ -26,51 +25,48 @@ st.set_page_config(
 )
 
 st.title("📝 廣告投放合約生成器")
-st.caption("✅ 解決 PDF 字型問題：直接生成 Word 檔，下載後請自行轉存 PDF。")
+st.caption("✅ 直接生成 Word 檔，下載後請自行轉存 PDF。")
 st.markdown("---")
 
 # =========================================================
 # 2) Session state
 # =========================================================
-if "generated" not in st.session_state:
-    st.session_state.generated = False
-    st.session_state.client_message = ""
-    st.session_state.payment_message = ""
-    st.session_state.docx_bytes = b""
-    st.session_state.last_party_a_name = ""
-
-if "phase2_generated" not in st.session_state:
-    st.session_state.phase2_generated = False
-    st.session_state.phase2_message = ""
+defaults = {
+    "generated": False,
+    "client_message": "",
+    "payment_message": "",
+    "docx_bytes": b"",
+    "last_party_a_name": "",
+    "phase2_generated": False,
+    "phase2_message": "",
+}
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 
 # =========================================================
-# 3) Word 字型設定函式 (關鍵：強制使用微軟正黑體)
+# 3) Word 字型設定
 # =========================================================
 def set_run_font(run, size=12, bold=False):
-    """設定字型為微軟正黑體，避免 Word 預設的新細明體或無襯線體"""
     run.font.name = "Microsoft JhengHei"
     run.font.size = Pt(size)
     run.bold = bold
     run._element.rPr.rFonts.set(qn("w:eastAsia"), "Microsoft JhengHei")
 
 # =========================================================
-# 4) 生成 Word 邏輯
+# 4) 生成 Word
 # =========================================================
 def generate_docx_bytes(party_a, payment_opt, start_dt, pay_day, pay_dt):
     doc = Document()
-
-    # --- 設定整份文件的預設行距 ---
     style = doc.styles["Normal"]
     style.paragraph_format.line_spacing = 1.5
 
-    # --- 標題 ---
     heading = doc.add_paragraph()
     heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = heading.add_run("廣告投放服務合約書")
     set_run_font(run, size=18, bold=True)
     doc.add_paragraph("")
 
-    # --- 計算變數 ---
     if payment_opt == "17,000元/月（每月付款）":
         end_dt = start_dt + timedelta(days=30)
         period_text = (
@@ -92,7 +88,6 @@ def generate_docx_bytes(party_a, payment_opt, start_dt, pay_day, pay_dt):
         first_pay_text = None
         refund_text = "2. 季付方案屬優惠性質之預付服務費，一經支付後即不予退還。即使甲方於合約期間內提前終止或未使用完畢服務內容，亦同；惟因乙方重大違約致服務無法履行者，不在此限。"
 
-    # --- 立約人 ---
     p = doc.add_paragraph()
     run = p.add_run(f"甲方（委託暨付款方）：{party_a}\n")
     set_run_font(run, size=12, bold=True)
@@ -100,12 +95,10 @@ def generate_docx_bytes(party_a, payment_opt, start_dt, pay_day, pay_dt):
     set_run_font(run, size=12, bold=True)
     doc.add_paragraph("")
 
-    # --- 前言 ---
     p = doc.add_paragraph()
     run = p.add_run("茲因甲方委託乙方提供數位廣告投放服務，雙方本於誠信原則，同意訂立本合約，並共同遵守下列條款：")
     set_run_font(run)
 
-    # --- 通用條款加入函式 ---
     def add_clause(title, contents):
         p_title = doc.add_paragraph()
         run_title = p_title.add_run(title)
@@ -118,10 +111,8 @@ def generate_docx_bytes(party_a, payment_opt, start_dt, pay_day, pay_dt):
                 run_item = p_item.add_run(content)
                 set_run_font(run_item)
 
-    # --- 第一條 ---
     add_clause("第一條　合約期間", [period_text])
 
-    # --- 第二條：服務內容（合約內文）---
     doc.add_paragraph("")
     p = doc.add_paragraph()
     run = p.add_run("第二條　服務內容")
@@ -160,7 +151,6 @@ def generate_docx_bytes(party_a, payment_opt, start_dt, pay_day, pay_dt):
         p.paragraph_format.left_indent = Cm(1.5)
         set_run_font(p.runs[0])
 
-    # --- 第三～十四條 ---
     add_clause("第三條　服務範圍與限制", [
         "1. 本服務範圍以 Meta（Facebook／Instagram）廣告投放為主；若需擴展至其他平台，雙方另行協議。",
         "2. 廣告投放預算由甲方自行支付予廣告平台，不包含於本合約服務費用內。",
@@ -230,7 +220,6 @@ def generate_docx_bytes(party_a, payment_opt, start_dt, pay_day, pay_dt):
         "本合約之解釋與適用，以中華民國法律為準據法。雙方如有爭議，應先行協商；協商不成以臺灣臺北地方法院為第一審管轄法院。"
     ])
 
-    # --- 簽名欄 ---
     doc.add_paragraph("")
     doc.add_paragraph("")
 
@@ -255,76 +244,84 @@ def generate_docx_bytes(party_a, payment_opt, start_dt, pay_day, pay_dt):
     return buffer.getvalue()
 
 # =========================================================
-# 5) UI: 服務內容說明
+# Sidebar：兩階段導覽
 # =========================================================
-st.header("服務內容說明")
-
-st.subheader("✅ 固定工作")
-st.markdown("""
-- **廣告上架**
-- **廣告監控 / 維護 / 優化**
-- **簡易週報**（成果摘要、下週優化方向）
-""")
-
-st.subheader("📌 非固定工作（視狀況提供）")
-st.markdown("""
-- **廣告素材建議**
-  - 依投放成效、競品、市場狀況提出方向
-- **到達頁面優化建議**
-  - 監控轉換成效
-""")
-
-st.warning("📌 稅務提醒：乙方為自然人，無須開立發票。甲方自行處理勞報或相關稅務。")
-st.markdown("---")
+with st.sidebar:
+    st.header("導覽")
+    nav = st.radio(
+        "請選擇階段：",
+        ["第一階段｜合約", "第二階段｜啟動前確認"],
+        index=0
+    )
+    st.markdown("---")
+    st.caption("提示：第二階段需先完成第一階段合約生成（避免客戶跳關）。")
 
 # =========================================================
-# 6) UI: 方案與資訊
+# 第一階段｜合約
 # =========================================================
-st.header("💰 付款方案")
-payment_option = st.radio(
-    "方案選擇：",
-    options=["17,000元/月（每月付款）", "45,000元/三個月（一次付款）"]
-)
+if nav == "第一階段｜合約":
 
-st.header("📅 時間設定")
-default_start = datetime.now().date() + timedelta(days=7)
-start_date = st.date_input("合作啟動日", value=default_start)
+    st.header("服務內容說明")
 
-payment_day = None
-payment_date = None
+    st.subheader("✅ 固定工作")
+    st.markdown("""
+    - **廣告上架**
+    - **廣告監控 / 維護 / 優化**
+    - **簡易週報**（成果摘要、下週優化方向）
+    """)
 
-if payment_option == "17,000元/月（每月付款）":
-    payment_day = st.slider("每月付款日", 1, 28, 5)
-else:
-    default_pay = start_date - timedelta(days=3)
-    if default_pay < datetime.now().date():
-        default_pay = datetime.now().date()
-    payment_date = st.date_input("付款日期", value=default_pay)
+    st.subheader("📌 非固定工作（視狀況提供）")
+    st.markdown("""
+    - **廣告素材建議**
+      - 依投放成效、競品、市場狀況提出方向
+    - **到達頁面優化建議**
+      - 監控轉換成效
+    """)
 
-st.markdown("---")
+    st.warning("📌 稅務提醒：乙方為自然人，無須開立發票。甲方自行處理勞報或相關稅務。")
+    st.markdown("---")
 
-st.header("🧾 甲方資訊")
-party_a_name = st.text_input("甲方名稱", placeholder="公司或個人名稱")
+    st.header("💰 付款方案")
+    payment_option = st.radio(
+        "方案選擇：",
+        options=["17,000元/月（每月付款）", "45,000元/三個月（一次付款）"]
+    )
 
-st.header("👤 乙方資訊")
-st.text_input("乙方", value=PROVIDER_NAME, disabled=True)
-c1, c2 = st.columns(2)
-c1.text_input("銀行", value=f"{BANK_NAME} ({BANK_CODE})", disabled=True)
-c2.text_input("帳號", value=ACCOUNT_NUMBER, disabled=True)
+    st.header("📅 時間設定")
+    default_start = datetime.now().date() + timedelta(days=7)
+    start_date = st.date_input("合作啟動日", value=default_start)
 
-st.markdown("---")
+    payment_day = None
+    payment_date = None
 
-# =========================================================
-# 7) 生成合約
-# =========================================================
-st.header("✅ 生成合約")
-
-if st.button("📝 生成 Word 合約", type="primary", use_container_width=True):
-    if not party_a_name.strip():
-        st.error("請輸入甲方名稱")
+    if payment_option == "17,000元/月（每月付款）":
+        payment_day = st.slider("每月付款日", 1, 28, 5)
     else:
-        if payment_option == "17,000元/月（每月付款）":
-            client_msg = f"""請直接複製以下內容，使用 LINE 傳給我（高如慧）：
+        default_pay = start_date - timedelta(days=3)
+        if default_pay < datetime.now().date():
+            default_pay = datetime.now().date()
+        payment_date = st.date_input("付款日期", value=default_pay)
+
+    st.markdown("---")
+
+    st.header("🧾 甲方資訊")
+    party_a_name = st.text_input("甲方名稱", placeholder="公司或個人名稱")
+
+    st.header("👤 乙方資訊")
+    st.text_input("乙方", value=PROVIDER_NAME, disabled=True)
+    c1, c2 = st.columns(2)
+    c1.text_input("銀行", value=f"{BANK_NAME} ({BANK_CODE})", disabled=True)
+    c2.text_input("帳號", value=ACCOUNT_NUMBER, disabled=True)
+
+    st.markdown("---")
+    st.header("✅ 生成合約")
+
+    if st.button("📝 生成 Word 合約", type="primary", use_container_width=True):
+        if not party_a_name.strip():
+            st.error("請輸入甲方名稱")
+        else:
+            if payment_option == "17,000元/月（每月付款）":
+                client_msg = f"""請直接複製以下內容，使用 LINE 傳給我（{PROVIDER_NAME}）：
 
 【合約確認】
 甲方：{party_a_name}
@@ -333,8 +330,8 @@ if st.button("📝 生成 Word 合約", type="primary", use_container_width=True
 啟動：{start_date.strftime('%Y-%m-%d')}
 付款：每月 {payment_day} 日
 """
-        else:
-            client_msg = f"""請直接複製以下內容，使用 LINE 傳給我（高如慧）：
+            else:
+                client_msg = f"""請直接複製以下內容，使用 LINE 傳給我（{PROVIDER_NAME}）：
 
 【合約確認】
 甲方：{party_a_name}
@@ -344,112 +341,116 @@ if st.button("📝 生成 Word 合約", type="primary", use_container_width=True
 付款：{payment_date.strftime('%Y-%m-%d')} 前
 """
 
-        payment_msg = f"""【收款資訊】
+            payment_msg = f"""【收款資訊】
 銀行：{BANK_NAME} ({BANK_CODE})
 帳號：{ACCOUNT_NUMBER}
 """
 
-        docx_bytes = generate_docx_bytes(
-            party_a_name, payment_option, start_date, payment_day, payment_date
+            docx_bytes = generate_docx_bytes(
+                party_a_name, payment_option, start_date, payment_day, payment_date
+            )
+
+            st.session_state.client_message = client_msg
+            st.session_state.payment_message = payment_msg
+            st.session_state.docx_bytes = docx_bytes
+            st.session_state.generated = True
+            st.session_state.last_party_a_name = party_a_name
+
+            # 重新生成合約時，第二階段也重置，避免舊資料混入
+            st.session_state.phase2_generated = False
+            st.session_state.phase2_message = ""
+
+            st.success("✅ Word 合約已生成！")
+
+    if st.session_state.generated:
+        st.markdown("---")
+        st.subheader("📤 給甲方看的訊息（請複製後用 LINE 傳給我）")
+        st.code(st.session_state.client_message, language=None)
+
+        st.subheader("💳 收款資訊（可複製）")
+        st.code(st.session_state.payment_message, language=None)
+
+        filename = f"廣告投放合約_{st.session_state.last_party_a_name}_{datetime.now().strftime('%Y%m%d')}.docx"
+        st.download_button(
+            label="⬇️ 下載 Word 合約 (.docx)",
+            data=st.session_state.docx_bytes,
+            file_name=filename,
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True
         )
 
-        st.session_state.client_message = client_msg
-        st.session_state.payment_message = payment_msg
-        st.session_state.docx_bytes = docx_bytes
-        st.session_state.generated = True
-        st.session_state.last_party_a_name = party_a_name
+        st.info("💡 下載後，建議在 Word 中『另存新檔 -> PDF』。")
 
-        # 合約重新生成時，把第二階段也重置，避免舊資料混入
-        st.session_state.phase2_generated = False
-        st.session_state.phase2_message = ""
-
-        st.success("✅ Word 合約已生成！")
+    if st.button("重置（清空全部）", use_container_width=True):
+        for k, v in defaults.items():
+            st.session_state[k] = v
+        st.rerun()
 
 # =========================================================
-# 8) 輸出（合約區）
+# 第二階段｜啟動前確認（sidebar 分頁）
 # =========================================================
-if st.session_state.generated:
+else:
+    if not st.session_state.generated:
+        st.warning("請先到「第一階段｜合約」完成合約生成，才能進行第二階段。")
+        st.stop()
+
+    st.header("🚀 第二階段｜啟動前確認 & 資料收集")
+    st.subheader("✅ 教學影片")
+    st.video(PHASE2_TUTORIAL_URL)
+
+    st.subheader("✅ 確認事項（可未完成，照實勾選）")
+    colA, colB = st.columns(2)
+    with colA:
+        c_ad_account = st.checkbox("廣告帳號已開啟", key="c_ad_account")
+        c_pixel = st.checkbox("像素事件已埋放", key="c_pixel")
+    with colB:
+        c_fanpage = st.checkbox("粉專已建立", key="c_fanpage")
+        c_bm = st.checkbox("企業管理平台已建立", key="c_bm")
+
+    st.subheader("🧾 須提供事項（請填寫）")
+    fanpage_url = st.text_input("你的粉專網址", placeholder="https://www.facebook.com/xxxx", key="fanpage_url")
+    landing_url = st.text_input("你的廣告要導向的網頁網址", placeholder="https://xxxx.com/landing", key="landing_url")
+
+    st.markdown("**三個你的競爭對手的粉絲專頁（請填滿 3 個）**")
+    comp1 = st.text_input("競品粉專 1", placeholder="https://www.facebook.com/competitor1", key="comp1")
+    comp2 = st.text_input("競品粉專 2", placeholder="https://www.facebook.com/competitor2", key="comp2")
+    comp3 = st.text_input("競品粉專 3", placeholder="https://www.facebook.com/competitor3", key="comp3")
+
+    who_problem = st.text_area("你的產品/服務要解決誰的問題？", key="who_problem")
+    what_problem = st.text_area("要解決什麼問題？", key="what_problem")
+    how_solve = st.text_area("你的產品/服務如何解決這些問題？", key="how_solve")
+    budget = st.text_input("第一個月預計的預算是多少？", placeholder="例如：30000", key="budget")
+
+    def _nonempty(x: str) -> bool:
+        return bool((x or "").strip())
+
+    def _status(flag: bool) -> str:
+        return "✅ 已完成" if flag else "⬜ 未完成"
+
+    # 第二階段只用「資料是否填齊」當門檻；確認事項不阻擋
+    inputs_ok = all([
+        _nonempty(fanpage_url),
+        _nonempty(landing_url),
+        _nonempty(comp1),
+        _nonempty(comp2),
+        _nonempty(comp3),
+        _nonempty(who_problem),
+        _nonempty(what_problem),
+        _nonempty(how_solve),
+        _nonempty(budget),
+    ])
+
     st.markdown("---")
-    st.subheader("📤 給甲方看的訊息（請複製後用 LINE 傳給我）")
-    st.code(st.session_state.client_message, language=None)
+    st.subheader("📤 回傳訊息（客戶複製貼回 LINE）")
 
-    st.subheader("💳 收款資訊（可複製）")
-    st.code(st.session_state.payment_message, language=None)
+    if st.button("📌 生成第二階段回傳訊息", type="primary", use_container_width=True):
+        if not inputs_ok:
+            st.error("請把「須提供事項」全部填寫完成（確認事項可未完成）。")
+        else:
+            now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            party = st.session_state.last_party_a_name or "（未填甲方）"
 
-    filename = f"廣告投放合約_{st.session_state.last_party_a_name}_{datetime.now().strftime('%Y%m%d')}.docx"
-    st.download_button(
-        label="⬇️ 下載 Word 合約 (.docx)",
-        data=st.session_state.docx_bytes,
-        file_name=filename,
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        use_container_width=True
-    )
-
-    st.info("💡 下載後，建議直接在 Word 中『另存新檔 -> PDF』，即可獲得完美排版。")
-
-    # =========================================================
-# 9) 第二階段：客戶啟動前確認 + 填寫資料 + 一鍵複製回傳（不阻擋）
-# =========================================================
-st.markdown("---")
-st.header("🚀 第二階段｜啟動前確認 & 資料收集")
-
-st.subheader("✅ 教學影片")
-st.video(PHASE2_TUTORIAL_URL)
-
-st.subheader("✅ 確認事項（可先不全完成，照實勾選）")
-colA, colB = st.columns(2)
-with colA:
-    c_ad_account = st.checkbox("廣告帳號已開啟", key="c_ad_account")
-    c_pixel = st.checkbox("像素事件已埋放", key="c_pixel")
-with colB:
-    c_fanpage = st.checkbox("粉專已建立", key="c_fanpage")
-    c_bm = st.checkbox("企業管理平台已建立", key="c_bm")
-
-st.subheader("🧾 須提供事項（請填寫）")
-fanpage_url = st.text_input("你的粉專網址", placeholder="https://www.facebook.com/xxxx", key="fanpage_url")
-landing_url = st.text_input("你的廣告要導向的網頁網址", placeholder="https://xxxx.com/landing", key="landing_url")
-
-st.markdown("**三個你的競爭對手的粉絲專頁（請填滿 3 個）**")
-comp1 = st.text_input("競品粉專 1", placeholder="https://www.facebook.com/competitor1", key="comp1")
-comp2 = st.text_input("競品粉專 2", placeholder="https://www.facebook.com/competitor2", key="comp2")
-comp3 = st.text_input("競品粉專 3", placeholder="https://www.facebook.com/competitor3", key="comp3")
-
-who_problem = st.text_area("你的產品/服務要解決誰的問題？", placeholder="例如：新手媽媽 / 失眠族 / 小型品牌主…", key="who_problem")
-what_problem = st.text_area("要解決什麼問題？", placeholder="例如：沒時間煮、轉換率低、客單價上不去…", key="what_problem")
-how_solve = st.text_area("你的產品/服務如何解決這些問題？", placeholder="用一句話說清楚機制或差異點", key="how_solve")
-
-budget = st.text_input("第一個月預計的預算是多少？", placeholder="例如：30000", key="budget")
-
-def _nonempty(x: str) -> bool:
-    return bool((x or "").strip())
-
-# ✅ 只用「資料是否填齊」當門檻；確認事項不阻擋
-inputs_ok = all([
-    _nonempty(fanpage_url),
-    _nonempty(landing_url),
-    _nonempty(comp1),
-    _nonempty(comp2),
-    _nonempty(comp3),
-    _nonempty(who_problem),
-    _nonempty(what_problem),
-    _nonempty(how_solve),
-    _nonempty(budget),
-])
-
-def _status(flag: bool) -> str:
-    return "✅ 已完成" if flag else "⬜ 未完成"
-
-st.markdown("---")
-st.subheader("📤 產出回傳訊息（給客戶複製）")
-
-if st.button("📌 生成第二階段回傳訊息", type="primary", use_container_width=True):
-    if not inputs_ok:
-        st.error("請把「須提供事項」全部填寫完成（確認事項可先不全完成）。")
-    else:
-        now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        party = st.session_state.last_party_a_name or party_a_name or "（未填甲方）"
-
-        msg = f"""請直接複製以下內容，使用 LINE 回傳給我（{PROVIDER_NAME}）：
+            msg = f"""請直接複製以下內容，使用 LINE 回傳給我（{PROVIDER_NAME}）：
 
 【第二階段啟動資料｜{now_ts}】
 甲方：{party}
@@ -477,10 +478,20 @@ if st.button("📌 生成第二階段回傳訊息", type="primary", use_containe
 【首月預算】
 - {budget}
 """
-        st.session_state.phase2_message = msg
-        st.session_state.phase2_generated = True
-        st.success("✅ 第二階段回傳訊息已生成！")
+            st.session_state.phase2_message = msg
+            st.session_state.phase2_generated = True
+            st.success("✅ 第二階段回傳訊息已生成！")
 
-if st.session_state.phase2_generated:
-    st.code(st.session_state.phase2_message, language=None)
+    if st.session_state.phase2_generated:
+        st.code(st.session_state.phase2_message, language=None)
 
+    if st.button("重置（只清第二階段）", use_container_width=True):
+        st.session_state.phase2_generated = False
+        st.session_state.phase2_message = ""
+        # 也把表單欄位清掉（避免下一個客戶看到上一個內容）
+        for k in ["c_ad_account", "c_pixel", "c_fanpage", "c_bm",
+                  "fanpage_url", "landing_url", "comp1", "comp2", "comp3",
+                  "who_problem", "what_problem", "how_solve", "budget"]:
+            if k in st.session_state:
+                del st.session_state[k]
+        st.rerun()
