@@ -399,94 +399,120 @@ if nav == "第一階段｜合約":
         st.rerun()
 
 # =========================================================
-# 第二階段｜啟動前確認（永遠可進，不做 gating）
+# 第二階段｜啟動前確認（即時輸出 × 可備份還原）
 # =========================================================
-else:
-    st.header("🚀 第二階段｜啟動前確認 & 資料蒐集")
-    st.caption("📌 確認事項可未完成；資料也可不完整先回傳。")
+st.header("🚀 第二階段｜啟動前確認 & 資料蒐集")
+st.caption("📌 可分次填寫；下方回傳內容會即時更新")
 
-    st.subheader("✅ 教學影片")
-    st.video(PHASE2_TUTORIAL_URL)
+# ---------- Sidebar：備份 / 還原 ----------
+with st.sidebar:
+    st.subheader("🗒️ 暫存 / 還原")
 
-    st.subheader("✅ 確認事項（照實勾選）")
-    colA, colB = st.columns(2)
-    with colA:
-        c_ad_account = st.checkbox("廣告帳號已開啟", key="c_ad_account")
-        c_pixel = st.checkbox("像素事件已埋放", key="c_pixel")
-    with colB:
-        c_fanpage = st.checkbox("粉專已建立", key="c_fanpage")
-        c_bm = st.checkbox("企業管理平台已建立", key="c_bm")
+    backup_input = st.text_area(
+        "貼上你之前備份的內容（可選）",
+        height=300,
+        placeholder="把你存在筆記本的內容貼回來"
+    )
 
-    st.subheader("🧾 須提供事項（可先填一部分）")
-    fanpage_url = st.text_input("你的粉專網址", placeholder="https://www.facebook.com/xxxx", key="fanpage_url")
-    landing_url = st.text_input("你的廣告要導向的網頁網址", placeholder="https://xxxx.com/landing", key="landing_url")
+    def restore_from_backup(text: str):
+        if not text:
+            return
+        lines = [l.strip() for l in text.splitlines() if "=" in l]
+        for line in lines:
+            k, v = line.split("=", 1)
+            if k in st.session_state:
+                if v in ["0", "1"]:
+                    st.session_state[k] = True if v == "1" else False
+                else:
+                    st.session_state[k] = v
 
-    st.markdown("**三個你的競爭對手的粉絲專頁（可先填一兩個）**")
-    comp1 = st.text_input("競品粉專 1", placeholder="https://www.facebook.com/competitor1", key="comp1")
-    comp2 = st.text_input("競品粉專 2", placeholder="https://www.facebook.com/competitor2", key="comp2")
-    comp3 = st.text_input("競品粉專 3", placeholder="https://www.facebook.com/competitor3", key="comp3")
+    if backup_input:
+        restore_from_backup(backup_input)
+        st.success("已嘗試還原內容（若欄位存在即已帶入）")
 
-    who_problem = st.text_area("你的產品/服務要解決誰的問題？", key="who_problem")
-    what_problem = st.text_area("要解決什麼問題？", key="what_problem")
-    how_solve = st.text_area("你的產品/服務如何解決這些問題？", key="how_solve")
-    budget = st.text_input("第一個月預計的預算是多少？", placeholder="例如：30000", key="budget")
+# ---------- 教學影片 ----------
+st.video(PHASE2_TUTORIAL_URL)
 
-    def _status(flag: bool) -> str:
-        return "✅ 已完成" if flag else "⬜ 未完成"
+# ---------- 確認事項 ----------
+st.subheader("✅ 確認事項（照實勾選）")
+col1, col2 = st.columns(2)
+with col1:
+    ad_account = st.checkbox("廣告帳號已開啟", key="ad_account")
+    pixel = st.checkbox("像素事件已埋放", key="pixel")
+with col2:
+    fanpage = st.checkbox("粉專已建立", key="fanpage")
+    bm = st.checkbox("企業管理平台已建立", key="bm")
 
-    def _nonempty(x: str) -> bool:
-        return bool((x or "").strip())
+# ---------- 資料填寫 ----------
+st.subheader("🧾 須提供事項")
+fanpage_url = st.text_input("粉專網址", key="fanpage_url")
+landing_url = st.text_input("廣告導向頁", key="landing_url")
 
-    st.markdown("---")
-    st.subheader("📤 產出回傳訊息（客戶複製貼回 LINE）")
+st.markdown("**競爭對手粉專**")
+comp1 = st.text_input("競品 1", key="comp1")
+comp2 = st.text_input("競品 2", key="comp2")
+comp3 = st.text_input("競品 3", key="comp3")
 
-    if st.button("📌 生成第二階段回傳訊息", type="primary", use_container_width=True):
-        now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+who_problem = st.text_area("解決誰的問題？", key="who_problem")
+what_problem = st.text_area("要解決什麼問題？", key="what_problem")
+how_solve = st.text_area("如何解決？", key="how_solve")
+budget = st.text_input("第一個月預算", key="budget")
 
-        party = st.session_state.last_party_a_name if _nonempty(st.session_state.last_party_a_name) else "（未填/未知）"
+# ---------- 備份內容（即時） ----------
+backup_text = f"""[CHECK]
+ad_account={1 if ad_account else 0}
+pixel={1 if pixel else 0}
+fanpage={1 if fanpage else 0}
+bm={1 if bm else 0}
 
-        msg = f"""請直接複製以下內容，使用 LINE 回傳給我（{PROVIDER_NAME}）：
+[DATA]
+fanpage_url={fanpage_url}
+landing_url={landing_url}
+comp1={comp1}
+comp2={comp2}
+comp3={comp3}
+who_problem={who_problem}
+what_problem={what_problem}
+how_solve={how_solve}
+budget={budget}
+"""
 
-【第二階段啟動資料｜{now_ts}】
-甲方：{party}
+st.subheader("🗂️ 備份用內容（請複製存到筆記本）")
+st.code(backup_text)
 
-【確認事項（目前狀態）】
-- 廣告帳號已開啟：{_status(c_ad_account)}
-- 像素事件已埋放：{_status(c_pixel)}
-- 粉專已建立：{_status(c_fanpage)}
-- 企業管理平台已建立：{_status(c_bm)}
+# ---------- 回傳訊息（即時生成） ----------
+def s(x): return x if x.strip() else "（未填）"
+def status(v): return "✅ 已完成" if v else "⬜ 未完成"
 
-【提供資料】
-- 粉專網址：{fanpage_url if _nonempty(fanpage_url) else "（未填）"}
-- 廣告導向頁：{landing_url if _nonempty(landing_url) else "（未填）"}
+reply_text = f"""請直接複製以下內容，使用 LINE 回傳給我（{PROVIDER_NAME}）：
 
-【競品粉專（3）】
-1) {comp1 if _nonempty(comp1) else "（未填）"}
-2) {comp2 if _nonempty(comp2) else "（未填）"}
-3) {comp3 if _nonempty(comp3) else "（未填）"}
+【第二階段啟動資料】
+甲方：{st.session_state.get("last_party_a_name","（未填）")}
 
-【定位資訊】
-- 解決誰的問題：{who_problem if _nonempty(who_problem) else "（未填）"}
-- 要解決什麼問題：{what_problem if _nonempty(what_problem) else "（未填）"}
-- 如何解決：{how_solve if _nonempty(how_solve) else "（未填）"}
+【確認事項】
+- 廣告帳號：{status(ad_account)}
+- 像素事件：{status(pixel)}
+- 粉專：{status(fanpage)}
+- BM：{status(bm)}
+
+【資料】
+- 粉專網址：{s(fanpage_url)}
+- 導向頁：{s(landing_url)}
+
+【競品】
+1) {s(comp1)}
+2) {s(comp2)}
+3) {s(comp3)}
+
+【定位】
+- 對象：{s(who_problem)}
+- 問題：{s(what_problem)}
+- 解法：{s(how_solve)}
 
 【首月預算】
-- {budget if _nonempty(budget) else "（未填）"}
+- {s(budget)}
 """
-        st.session_state.phase2_message = msg
-        st.session_state.phase2_generated = True
-        st.success("✅ 第二階段回傳訊息已生成！")
 
-    if st.session_state.phase2_generated:
-        st.code(st.session_state.phase2_message, language=None)
+st.subheader("📤 回傳內容（即時更新，可直接複製）")
+st.code(reply_text)
 
-    if st.button("重置（第二階段）", use_container_width=True):
-        st.session_state.phase2_generated = False
-        st.session_state.phase2_message = ""
-        # 清掉第二階段欄位，避免下一位客戶看到上一位內容（你若不想清可把這段刪掉）
-        for k in ["c_ad_account","c_pixel","c_fanpage","c_bm",
-                  "fanpage_url","landing_url","comp1","comp2","comp3",
-                  "who_problem","what_problem","how_solve","budget"]:
-            if k in st.session_state:
-                del st.session_state[k]
-        st.rerun()
