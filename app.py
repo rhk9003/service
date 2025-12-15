@@ -342,7 +342,7 @@ if st.button("📝 生成 Word 合約", type="primary", use_container_width=True
 # =========================================================
 if st.session_state.generated:
     st.markdown("---")
-    st.subheader("📤 給甲方看的訊息（請複製後用 LINE 傳給我）")
+    st.subheader("📤 合作訊息（請複製後用 LINE 傳給我）")
     st.code(st.session_state.client_message, language=None)
 
     st.subheader("💳 收款資訊（可複製）")
