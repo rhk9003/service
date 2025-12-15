@@ -341,10 +341,9 @@ def generate_pdf_bytes(
     if payment_option == "17,000元/月（每月付款）":
         story.append(Paragraph("2. 月付方案：已支付之當期費用不予退還；甲方仍可於當期內使用既定服務至當期結束。", styles['number_item']))
     else:
-    story.append(Paragraph(
-        "2. 季付方案屬優惠性質之預付服務費，一經支付後即不予退還。即使甲方於合約期間內提前終止或未使用完畢服務內容，亦同；惟因乙方重大違約致服務無法履行者，不在此限。",
+        2. 季付方案屬優惠性質之預付服務費，一經支付後即不予退還。即使甲方於合約期間內提前終止或未使用完畢服務內容，亦同；惟因乙方重大違約致服務無法履行者，不在此限。",
         styles['number_item']))
-
+    story.append(Paragraph("3. 如因一方重大違約致他方權益受損，受損方得立即終止合約並請求損害賠償。", styles['number_item']))
 
     # 第十一條：通知方式
     story.append(Paragraph("<b>第十一條　通知方式</b>", styles['heading']))
