@@ -14,7 +14,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 
 # =========================================================
-# 0) 基礎設定與字型下載邏輯（已修復 404 錯誤）
+# 0) 基礎設定與字型下載邏輯（改用 CDN 確保穩定）
 # =========================================================
 PROVIDER_NAME = "高如慧"  # 乙方（服務執行者）
 BANK_NAME = "中國信託商業銀行"
@@ -28,16 +28,16 @@ FONT_NAME = "NotoSansTC"
 FONT_FILE_NAME = "NotoSansTC-Regular.ttf"
 FONT_PATH = FONT_DIR / FONT_FILE_NAME
 
-# 備援下載清單（如果第一個掛了，會自動試第二個）
+# 使用 jsDelivr CDN (這比 GitHub Raw 穩定非常多，不會隨意變動)
 FONT_URLS = [
-    # Google Fonts 官方 (hinted/ttf 路徑)
-    "https://raw.githubusercontent.com/googlefonts/noto-sans-tc/master/hinted/ttf/NotoSansTC-Regular.ttf",
-    # Open Fonts Mirror (備援)
-    "https://raw.githubusercontent.com/open-fonts/noto-sans-tc/master/fonts/NotoSansTC-Regular.ttf",
+    # 來源 1: Noto Sans TC (v1.0.0 靜態版 hosted on jsDelivr) - 最穩
+    "https://cdn.jsdelivr.net/npm/noto-sans-tc-reveal@1.0.0/NotoSansTC-Regular.ttf",
+    # 來源 2: 備援 (Google Fonts static via github raw - 若路徑沒變)
+    "https://github.com/google/fonts/raw/main/ofl/notosanstc/static/NotoSansTC-Regular.ttf",
 ]
 
 def ensure_font_loaded():
-    """確保中文字型已下載並註冊，包含備援機制"""
+    """確保中文字型已下載並註冊，包含多重備援機制"""
     FONT_DIR.mkdir(parents=True, exist_ok=True)
     
     # 只有當檔案不存在時才下載
@@ -45,30 +45,36 @@ def ensure_font_loaded():
         download_success = False
         last_error = None
         
-        with st.spinner("正在下載中文字型（僅首次需執行）..."):
+        with st.spinner("正在下載中文字型（使用 CDN 加速中）..."):
             for url in FONT_URLS:
                 try:
-                    # 設定 timeout 避免卡死
+                    # 設定 timeout
                     resp = requests.get(url, timeout=15)
+                    # 檢查是否為 200 OK
                     resp.raise_for_status()
+                    
+                    # 寫入檔案
                     FONT_PATH.write_bytes(resp.content)
                     download_success = True
-                    break  # 下載成功就跳出迴圈
+                    # st.info(f"成功從 {url} 下載字型") # Debug 用
+                    break  # 下載成功就跳出
                 except Exception as e:
                     last_error = e
                     continue
         
         if not download_success:
-            st.error(f"❌ 字型下載失敗，無法產生 PDF。錯誤原因：{last_error}")
-            st.stop() # 強制停止，避免後續程式碼崩潰
+            st.error("❌ 字型自動下載失敗。")
+            st.warning(f"請手動下載 NotoSansTC-Regular.ttf，並將檔案上傳到專案的 {FONT_DIR} 資料夾中。")
+            st.error(f"最後一次錯誤訊息：{last_error}")
+            st.stop() # 強制停止
 
     # 註冊字型
     try:
-        # 檢查是否已經註冊過，避免重複註冊報錯
         if FONT_NAME not in pdfmetrics.getRegisteredFontNames():
             pdfmetrics.registerFont(TTFont(FONT_NAME, str(FONT_PATH)))
     except Exception as e:
         st.error(f"字型註冊失敗：{e}")
+        st.caption("這通常代表下載的檔案不是有效的 TTF 字型檔。")
         st.stop()
 
 # =========================================================
@@ -212,7 +218,7 @@ def generate_pdf_bytes(
     payment_date
 ) -> bytes:
     
-    # 務必在這裡確保字型已載入，否則中文會變亂碼或報錯
+    # 【關鍵】生成前確保字型存在，否則 ReportLab 會崩潰
     ensure_font_loaded()
 
     buffer = io.BytesIO()
@@ -236,7 +242,7 @@ def generate_pdf_bytes(
     }
 
     story = []
-    # 如果字型載入失敗，這裡會報錯，但因為前面有 ensure_font_loaded 防守，理論上不會執行到這
+    
     story.append(Paragraph("<b>廣告投放服務合約書</b>", styles["title"]))
 
     # 合約期間
