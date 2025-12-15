@@ -2,7 +2,7 @@ import streamlit as st
 from datetime import datetime, timedelta
 import io
 from pathlib import Path
-import requests  # 必須要有這個庫來下載字型
+import requests
 
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -10,11 +10,11 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont # 改回使用 TTFont
+from reportlab.pdfbase.ttfonts import TTFont
 
 
 # =========================================================
-# 0) 基礎設定與字型下載邏輯（修復亂碼的關鍵）
+# 0) 基礎設定與字型下載邏輯（已修復 404 錯誤）
 # =========================================================
 PROVIDER_NAME = "高如慧"  # 乙方（服務執行者）
 BANK_NAME = "中國信託商業銀行"
@@ -27,28 +27,49 @@ FONT_DIR = APP_DIR / ".cache" / "fonts"
 FONT_NAME = "NotoSansTC"
 FONT_FILE_NAME = "NotoSansTC-Regular.ttf"
 FONT_PATH = FONT_DIR / FONT_FILE_NAME
-FONT_URL = "https://raw.githubusercontent.com/googlefonts/noto-sans-tc/main/fonts/ttf/NotoSansTC-Regular.ttf"
+
+# 備援下載清單（如果第一個掛了，會自動試第二個）
+FONT_URLS = [
+    # Google Fonts 官方 (hinted/ttf 路徑)
+    "https://raw.githubusercontent.com/googlefonts/noto-sans-tc/master/hinted/ttf/NotoSansTC-Regular.ttf",
+    # Open Fonts Mirror (備援)
+    "https://raw.githubusercontent.com/open-fonts/noto-sans-tc/master/fonts/NotoSansTC-Regular.ttf",
+]
 
 def ensure_font_loaded():
-    """確保中文字型已下載並註冊"""
+    """確保中文字型已下載並註冊，包含備援機制"""
     FONT_DIR.mkdir(parents=True, exist_ok=True)
     
-    # 如果檔案不存在，就下載
+    # 只有當檔案不存在時才下載
     if not FONT_PATH.exists():
-        with st.spinner("正在下載中文字型（修復亂碼中）..."):
-            try:
-                resp = requests.get(FONT_URL, timeout=30)
-                resp.raise_for_status()
-                FONT_PATH.write_bytes(resp.content)
-            except Exception as e:
-                st.error(f"字型下載失敗，PDF 可能無法顯示中文。錯誤：{e}")
-                return
+        download_success = False
+        last_error = None
+        
+        with st.spinner("正在下載中文字型（僅首次需執行）..."):
+            for url in FONT_URLS:
+                try:
+                    # 設定 timeout 避免卡死
+                    resp = requests.get(url, timeout=15)
+                    resp.raise_for_status()
+                    FONT_PATH.write_bytes(resp.content)
+                    download_success = True
+                    break  # 下載成功就跳出迴圈
+                except Exception as e:
+                    last_error = e
+                    continue
+        
+        if not download_success:
+            st.error(f"❌ 字型下載失敗，無法產生 PDF。錯誤原因：{last_error}")
+            st.stop() # 強制停止，避免後續程式碼崩潰
 
     # 註冊字型
     try:
-        pdfmetrics.getFont(FONT_NAME)
-    except KeyError:
-        pdfmetrics.registerFont(TTFont(FONT_NAME, str(FONT_PATH)))
+        # 檢查是否已經註冊過，避免重複註冊報錯
+        if FONT_NAME not in pdfmetrics.getRegisteredFontNames():
+            pdfmetrics.registerFont(TTFont(FONT_NAME, str(FONT_PATH)))
+    except Exception as e:
+        st.error(f"字型註冊失敗：{e}")
+        st.stop()
 
 # =========================================================
 # 1) Page config
@@ -191,7 +212,7 @@ def generate_pdf_bytes(
     payment_date
 ) -> bytes:
     
-    # 務必在這裡確保字型已載入，否則中文會變亂碼
+    # 務必在這裡確保字型已載入，否則中文會變亂碼或報錯
     ensure_font_loaded()
 
     buffer = io.BytesIO()
@@ -215,6 +236,7 @@ def generate_pdf_bytes(
     }
 
     story = []
+    # 如果字型載入失敗，這裡會報錯，但因為前面有 ensure_font_loaded 防守，理論上不會執行到這
     story.append(Paragraph("<b>廣告投放服務合約書</b>", styles["title"]))
 
     # 合約期間
