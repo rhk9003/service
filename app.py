@@ -388,78 +388,77 @@ if st.session_state.generated:
     st.info("💡 下載後，建議直接在 Word 中『另存新檔 -> PDF』，即可獲得完美排版。")
 
     # =========================================================
-    # 9) 第二階段：客戶啟動前確認 + 填寫資料 + 一鍵複製回傳
-    # =========================================================
-    st.markdown("---")
-    st.header("🚀 第二階段｜啟動前確認 & 資料收集")
+# 9) 第二階段：客戶啟動前確認 + 填寫資料 + 一鍵複製回傳（不阻擋）
+# =========================================================
+st.markdown("---")
+st.header("🚀 第二階段｜啟動前確認 & 資料收集")
 
-    st.subheader("✅ 教學影片")
-    st.video(PHASE2_TUTORIAL_URL)
+st.subheader("✅ 教學影片")
+st.video(PHASE2_TUTORIAL_URL)
 
-    st.subheader("✅ 確認事項（請勾選）")
-    colA, colB = st.columns(2)
-    with colA:
-        c_ad_account = st.checkbox("廣告帳號已開啟", key="c_ad_account")
-        c_pixel = st.checkbox("像素事件已埋放", key="c_pixel")
-    with colB:
-        c_fanpage = st.checkbox("粉專已建立", key="c_fanpage")
-        c_bm = st.checkbox("企業管理平台已建立", key="c_bm")
+st.subheader("✅ 確認事項（可先不全完成，照實勾選）")
+colA, colB = st.columns(2)
+with colA:
+    c_ad_account = st.checkbox("廣告帳號已開啟", key="c_ad_account")
+    c_pixel = st.checkbox("像素事件已埋放", key="c_pixel")
+with colB:
+    c_fanpage = st.checkbox("粉專已建立", key="c_fanpage")
+    c_bm = st.checkbox("企業管理平台已建立", key="c_bm")
 
-    st.subheader("🧾 須提供事項（請填寫）")
-    fanpage_url = st.text_input("你的粉專網址", placeholder="https://www.facebook.com/xxxx", key="fanpage_url")
-    landing_url = st.text_input("你的廣告要導向的網頁網址", placeholder="https://xxxx.com/landing", key="landing_url")
+st.subheader("🧾 須提供事項（請填寫）")
+fanpage_url = st.text_input("你的粉專網址", placeholder="https://www.facebook.com/xxxx", key="fanpage_url")
+landing_url = st.text_input("你的廣告要導向的網頁網址", placeholder="https://xxxx.com/landing", key="landing_url")
 
-    st.markdown("**三個你的競爭對手的粉絲專頁（請填滿 3 個）**")
-    comp1 = st.text_input("競品粉專 1", placeholder="https://www.facebook.com/competitor1", key="comp1")
-    comp2 = st.text_input("競品粉專 2", placeholder="https://www.facebook.com/competitor2", key="comp2")
-    comp3 = st.text_input("競品粉專 3", placeholder="https://www.facebook.com/competitor3", key="comp3")
+st.markdown("**三個你的競爭對手的粉絲專頁（請填滿 3 個）**")
+comp1 = st.text_input("競品粉專 1", placeholder="https://www.facebook.com/competitor1", key="comp1")
+comp2 = st.text_input("競品粉專 2", placeholder="https://www.facebook.com/competitor2", key="comp2")
+comp3 = st.text_input("競品粉專 3", placeholder="https://www.facebook.com/competitor3", key="comp3")
 
-    who_problem = st.text_area("你的產品/服務要解決誰的問題？", placeholder="例如：新手媽媽 / 失眠族 / 小型品牌主…", key="who_problem")
-    what_problem = st.text_area("要解決什麼問題？", placeholder="例如：沒時間煮、轉換率低、客單價上不去…", key="what_problem")
-    how_solve = st.text_area("你的產品/服務如何解決這些問題？", placeholder="用一句話說清楚機制或差異點", key="how_solve")
+who_problem = st.text_area("你的產品/服務要解決誰的問題？", placeholder="例如：新手媽媽 / 失眠族 / 小型品牌主…", key="who_problem")
+what_problem = st.text_area("要解決什麼問題？", placeholder="例如：沒時間煮、轉換率低、客單價上不去…", key="what_problem")
+how_solve = st.text_area("你的產品/服務如何解決這些問題？", placeholder="用一句話說清楚機制或差異點", key="how_solve")
 
-    budget = st.text_input("第一個月預計的預算是多少？", placeholder="例如：30000", key="budget")
+budget = st.text_input("第一個月預計的預算是多少？", placeholder="例如：30000", key="budget")
 
-    # --- 第二階段資料完整性檢查 ---
-    checks_ok = all([c_ad_account, c_pixel, c_fanpage, c_bm])
+def _nonempty(x: str) -> bool:
+    return bool((x or "").strip())
 
-    def _nonempty(x: str) -> bool:
-        return bool((x or "").strip())
+# ✅ 只用「資料是否填齊」當門檻；確認事項不阻擋
+inputs_ok = all([
+    _nonempty(fanpage_url),
+    _nonempty(landing_url),
+    _nonempty(comp1),
+    _nonempty(comp2),
+    _nonempty(comp3),
+    _nonempty(who_problem),
+    _nonempty(what_problem),
+    _nonempty(how_solve),
+    _nonempty(budget),
+])
 
-    inputs_ok = all([
-        _nonempty(fanpage_url),
-        _nonempty(landing_url),
-        _nonempty(comp1),
-        _nonempty(comp2),
-        _nonempty(comp3),
-        _nonempty(who_problem),
-        _nonempty(what_problem),
-        _nonempty(how_solve),
-        _nonempty(budget),
-    ])
+def _status(flag: bool) -> str:
+    return "✅ 已完成" if flag else "⬜ 未完成"
 
-    st.markdown("---")
-    st.subheader("📤 產出回傳訊息（給客戶複製）")
+st.markdown("---")
+st.subheader("📤 產出回傳訊息（給客戶複製）")
 
-    if st.button("📌 生成第二階段回傳訊息", type="primary", use_container_width=True):
-        if not checks_ok:
-            st.error("請先把「確認事項」全部勾選完成。")
-        elif not inputs_ok:
-            st.error("請把「須提供事項」全部填寫完成。")
-        else:
-            now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            party = st.session_state.last_party_a_name or party_a_name or "（未填甲方）"
+if st.button("📌 生成第二階段回傳訊息", type="primary", use_container_width=True):
+    if not inputs_ok:
+        st.error("請把「須提供事項」全部填寫完成（確認事項可先不全完成）。")
+    else:
+        now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        party = st.session_state.last_party_a_name or party_a_name or "（未填甲方）"
 
-            msg = f"""請直接複製以下內容，使用 LINE 回傳給我（{PROVIDER_NAME}）：
+        msg = f"""請直接複製以下內容，使用 LINE 回傳給我（{PROVIDER_NAME}）：
 
 【第二階段啟動資料｜{now_ts}】
 甲方：{party}
 
-【確認事項（已完成）】
-- 廣告帳號已開啟：✅
-- 像素事件已埋放：✅
-- 粉專已建立：✅
-- 企業管理平台已建立：✅
+【確認事項（目前狀態）】
+- 廣告帳號已開啟：{_status(c_ad_account)}
+- 像素事件已埋放：{_status(c_pixel)}
+- 粉專已建立：{_status(c_fanpage)}
+- 企業管理平台已建立：{_status(c_bm)}
 
 【提供資料】
 - 粉專網址：{fanpage_url}
@@ -478,20 +477,10 @@ if st.session_state.generated:
 【首月預算】
 - {budget}
 """
-            st.session_state.phase2_message = msg
-            st.session_state.phase2_generated = True
-            st.success("✅ 第二階段回傳訊息已生成！")
+        st.session_state.phase2_message = msg
+        st.session_state.phase2_generated = True
+        st.success("✅ 第二階段回傳訊息已生成！")
 
-    if st.session_state.phase2_generated:
-        st.code(st.session_state.phase2_message, language=None)
+if st.session_state.phase2_generated:
+    st.code(st.session_state.phase2_message, language=None)
 
-    st.markdown("---")
-    if st.button("重置", use_container_width=True):
-        st.session_state.generated = False
-        st.session_state.client_message = ""
-        st.session_state.payment_message = ""
-        st.session_state.docx_bytes = b""
-        st.session_state.last_party_a_name = ""
-        st.session_state.phase2_generated = False
-        st.session_state.phase2_message = ""
-        st.rerun()
