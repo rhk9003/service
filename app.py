@@ -1,6 +1,8 @@
 import streamlit as st
 from datetime import datetime, timedelta
 import io
+from pathlib import Path
+import requests  # 必須要有這個庫來下載字型
 
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -8,21 +10,45 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+from reportlab.pdfbase.ttfonts import TTFont # 改回使用 TTFont
 
 
 # =========================================================
-# 0) 固定資訊（乙方不可修改）
+# 0) 基礎設定與字型下載邏輯（修復亂碼的關鍵）
 # =========================================================
 PROVIDER_NAME = "高如慧"  # 乙方（服務執行者）
 BANK_NAME = "中國信託商業銀行"
 BANK_CODE = "822"
 ACCOUNT_NUMBER = "783540208870"
 
-# 使用 ReportLab 內建 CID 中文字體（不需要字型檔、最穩）
-FONT_NAME = "STSong-Light"
-pdfmetrics.registerFont(UnicodeCIDFont(FONT_NAME))
+# 設定字型儲存路徑
+APP_DIR = Path(__file__).resolve().parent
+FONT_DIR = APP_DIR / ".cache" / "fonts"
+FONT_NAME = "NotoSansTC"
+FONT_FILE_NAME = "NotoSansTC-Regular.ttf"
+FONT_PATH = FONT_DIR / FONT_FILE_NAME
+FONT_URL = "https://raw.githubusercontent.com/googlefonts/noto-sans-tc/main/fonts/ttf/NotoSansTC-Regular.ttf"
 
+def ensure_font_loaded():
+    """確保中文字型已下載並註冊"""
+    FONT_DIR.mkdir(parents=True, exist_ok=True)
+    
+    # 如果檔案不存在，就下載
+    if not FONT_PATH.exists():
+        with st.spinner("正在下載中文字型（修復亂碼中）..."):
+            try:
+                resp = requests.get(FONT_URL, timeout=30)
+                resp.raise_for_status()
+                FONT_PATH.write_bytes(resp.content)
+            except Exception as e:
+                st.error(f"字型下載失敗，PDF 可能無法顯示中文。錯誤：{e}")
+                return
+
+    # 註冊字型
+    try:
+        pdfmetrics.getFont(FONT_NAME)
+    except KeyError:
+        pdfmetrics.registerFont(TTFont(FONT_NAME, str(FONT_PATH)))
 
 # =========================================================
 # 1) Page config
@@ -39,7 +65,7 @@ st.markdown("---")
 
 
 # =========================================================
-# 2) Session state：避免下載 PDF 後內容消失
+# 2) Session state
 # =========================================================
 if "generated" not in st.session_state:
     st.session_state.generated = False
@@ -164,6 +190,10 @@ def generate_pdf_bytes(
     payment_day,
     payment_date
 ) -> bytes:
+    
+    # 務必在這裡確保字型已載入，否則中文會變亂碼
+    ensure_font_loaded()
+
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
